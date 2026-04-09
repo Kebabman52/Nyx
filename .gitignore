@@ -1,0 +1,6 @@
+/bench/
+/build/
+/tests/
+/cmake-build-debug/
+/examples/
+/release/

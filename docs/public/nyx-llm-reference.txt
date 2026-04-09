@@ -1,0 +1,219 @@
+# Nyx Language Reference (for LLM context)
+# Built by Nemesis Security — https://nemesistech.ee
+
+## Overview
+Nyx is an embeddable scripting language. C-like syntax, statically typed with inference, bytecode VM.
+
+## Variables
+var x = 42;              // type inferred (int)
+var hex = 0xFF;          // hex literal (255)
+var big = 0xDEADBEEF;   // hex literal (3735928559)
+let y: string = "hello"; // explicit type
+const PI = 3.14;         // immutable
+
+## Types
+int (64-bit signed, small values NaN-boxed, large values heap-allocated), float (64-bit double), bool, string, nil, list, map, fn, Result, coroutine
+Hex literals: 0xFF, 0xDEADBEEF (anywhere an int is expected)
+Nullable: int? = nil;
+Int promotes to float in arithmetic. No other implicit conversions.
+
+## Operators
+Arithmetic: + - * / %
+Comparison: == != > >= < <=
+Logical: && || ! (or: and or not)
+Equality: is, is not
+Membership: in, not in
+Ternary: condition ? then : else
+Null-safe: obj?.field
+Compound: += -= *= /= %=
+Increment: ++ --
+instanceof: obj is ClassName
+
+## Strings
+"hello"                          // regular string
+"""multi\nline"""                // multi-line (triple quotes)
+"hello ${name}"                  // interpolation (variables)
+"sum: ${x + y}"                  // interpolation (full expressions)
+"upper: ${name.to_upper()}"     // interpolation (method calls)
+"val: ${m["key"]}"              // interpolation (nested quotes work)
+"score: " + 42                   // auto-convert with +
+Escape: \n \t \r \\ \" \0
+String methods (called on values): .len(), .to_upper(), .to_lower(), .trim(), .reverse(),
+.contains(sub), .starts_with(s), .ends_with(s), .index_of(sub), .split(delim),
+.repeat(n), .char_at(idx), .replace(from, to), .substr(start, len?), .is_empty()
+
+## Control Flow
+if (cond) { } else if (cond) { } else { }
+if (cond) statement;             // braceless ok
+while (cond) { }
+for i in 0..10 { }              // range
+for item in list { }            // collection
+for i, item in list { }         // indexed
+for key, value in map { }       // map iteration
+loop { if (done) break; }       // infinite loop
+break;                           // exit loop
+continue;                        // skip to next iteration
+
+## Match (statement and expression)
+match value {
+    1 => { print("one"); },
+    x if x > 0 => { print("positive"); },
+    _ => { print("other"); },
+}
+var label = match code { 200 => "OK", 404 => "Not Found", _ => "?" };
+
+## Functions
+fn add(a: int, b: int) -> int { return a + b; }
+fn greet(name: string = "world") { print("Hello ${name}!"); }  // default params
+fn sum(...nums) { /* nums is a list */ }                        // varargs
+
+## Lambdas
+var double = |x| => x * 2;
+var add = |a: int, b: int| => a + b;
+
+## Closures
+fn make_counter() -> fn {
+    var count = 0;
+    fn inc() -> int { count += 1; return count; }
+    return inc;
+}
+
+## Classes
+class Animal {
+    init(name: string) { self.name = name; }
+    fn speak() -> string { return self.name + " speaks"; }
+}
+class Dog : Animal {                    // single inheritance
+    init(name: string, breed: string) {
+        super.init(name);              // call parent constructor
+        self.breed = breed;
+    }
+    fn speak() -> string { return self.name + " barks!"; }
+}
+var d = Dog("Rex", "Shepherd");
+print(d is Animal);                    // true (instanceof with inheritance)
+
+// Static methods — any method can be called on the class directly
+// When called on class: self is nil. When called on instance: self is the instance.
+var p = Process.open("init");          // factory pattern — self is nil in open()
+print(p.info());                       // instance call — self is the instance
+
+## Enums
+enum Color { RED, GREEN, BLUE }
+print(Color["RED"]);                   // 0
+
+## Collections
+
+### Lists
+var nums = [1, 2, 3];
+nums[0]; nums[-1]; nums[2] = 99;
+Methods: push(item), pop(), shift(), insert_at(idx, item), insert_before(target, item),
+insert_after(target, item), remove(item), remove_at(idx), remove_all(item),
+get(idx), first(), last(), len(), contains(item), index_of(item),
+reverse(), sort(), slice(start, end), clear(), is_empty(), set_max(n), keys()
+
+### Maps
+var m = {"a": 1, "b": 2};
+m["key"]; m["key"] = val;
+Methods: get(key), set(key, val), remove(key), len(), contains_key(key),
+contains_value(val), keys(), values(), merge(other), clear(), is_empty(), reverse()
+
+### Sets
+var s = set(1, 2, 3);                   // any value types
+var tags = set("fast", "typed");
+var mixed = set(1, "hello", true);       // mixed types OK
+Methods: add(val), remove(val), contains(val), len(), is_empty(), clear()
+Membership: 3 in s                       // true
+
+### Ranges
+var r = 0..10;                           // range object (start inclusive, end exclusive)
+r[0]; r[4]; 5 in r;                     // index, membership
+type(r);                                 // "range"
+for i in 0..10 { }                      // most common use
+
+## Error Handling
+fn divide(a: float, b: float) -> Result {
+    if (b == 0.0) return Err("division by zero");
+    return Ok(a / b);
+}
+var r = divide(10.0, 3.0);
+r.is_ok(); r.is_err(); r.unwrap(); r.unwrap_or(0.0); r.unwrap_err();
+
+// ? operator propagates errors
+fn pipeline() -> Result {
+    var a = step1()?;    // unwraps Ok or returns Err
+    var b = step2(a)?;
+    return Ok(b);
+}
+
+panic("unrecoverable");  // crash with message
+
+## Coroutines
+fn fibonacci() {
+    var a = 0; var b = 1;
+    while (true) {
+        yield a;
+        var temp = a; a = b; b = temp + b;
+    }
+}
+var fib = fibonacci();       // creates coroutine
+print(resume fib);           // 0
+print(resume fib);           // 1
+
+## Modules
+import utils;                // loads utils.nyx
+import "lib/helpers";        // string path
+
+## Null-safe chaining
+obj?.field                   // nil if obj is nil, no crash
+obj?.method()                // nil if obj is nil
+
+## Standard Library (always available)
+// Core: print(v), str(v), len(v), type(v), clock()
+// Math: abs, floor, ceil, round, sqrt, sin, cos, tan, pow, log, min, max, clamp, random, random_int, PI, E
+// String: split, join, trim, str_contains, replace, starts_with, ends_with, to_upper, to_lower, substr, str_repeat, char_at, str_index_of, parse_int, parse_float
+// IO: read_file, write_file, file_exists, print_err, input
+// System: exec(cmd), load_native(path), platform(), arch()
+// Collections: range, list_repeat, flatten, set
+// Conversion: to_int, to_float
+// Error: Ok, Err, panic, is_ok, is_err, unwrap, unwrap_or
+
+## Embedding C API
+nyx_init(); nyx_free();                           // lifecycle
+nyx_do_string(src); nyx_do_file(path);            // run code
+nyx_push_int(v); nyx_push_string(s, len);         // push values
+nyx_to_int(idx); nyx_to_cstring(idx);             // read values
+nyx_get_global("name");                            // push global
+nyx_call(argCount);                                // call function on stack
+nyx_register_fn("name", fn);                      // expose C function
+nyx_register_class("name");                        // register host class
+nyx_register_method("Class", "method", fn);        // add native method (args[0] = self)
+nyx_gc_collect();                                  // manual GC
+nyx_compile_to_file(src, out); nyx_build(dir, out); nyx_run_compiled(path);
+
+## Package Manager
+nyx install <pkg>              // install from registry
+nyx install <pkg> <version>    // install specific version
+nyx install <git-url>          // install from git
+nyx uninstall <pkg>            // remove package
+nyx list                       // show installed
+nyx registry update            // refresh registry
+// Import resolution: relative → nyx_modules/ → NYX_HOME/libs/
+// nyx.toml: [package] for libraries, [project] + [dependencies] for projects
+
+## Native Modules
+// Write C shared library, export nyx_module_init(const NyxModuleAPI* api)
+// api->register_fn("name", fn); api->register_class("Name"); api->register_method("Class", "method", fn);
+// Compile: gcc -shared -o mod.dll mod.c -I<nyx>/include -DNYX_NAN_BOXING (no linking needed)
+// Load from Nyx: load_native("path/to/mod");
+// nyx build auto-bundles bin/*.dll/*.so/*.dylib into .nyxc
+
+## Profiler
+nyx --profile script.nyx       // shows function call counts, time, self-time, peak memory
+
+## CLI
+nyx                    # REPL
+nyx script.nyx         # run source
+nyx script.nyxc        # run compiled bytecode
+nyx compile f.nyx -o f.nyxc   # compile
+nyx build ./src -o app.nyxc   # build project

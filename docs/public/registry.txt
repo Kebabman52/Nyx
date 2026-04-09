@@ -1,0 +1,9 @@
+# Nyx Package Registry
+# Format: name=https://git-url.git
+# Updated by: nyx registry update
+# Maintained by: Nemesis Security (https://nemesistech.ee)
+#
+# To submit a package, open a PR adding your line here:
+# https://github.com/nemesis-security/nyx
+
+http=https://github.com/Nyx-Libraries/nyx-http.git

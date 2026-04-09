@@ -1,0 +1,8 @@
+
+.claude/
+
+.vitepress/dist/
+
+node_modules/
+
+.vitepress/cache/
