@@ -1,0 +1,77 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            name: windows-x64
+            ext: .exe
+            cmake_flags: ""
+          - os: ubuntu-latest
+            name: linux-x64
+            ext: ""
+            cmake_flags: ""
+          - os: macos-latest
+            name: macos-arm64
+            ext: ""
+            cmake_flags: ""
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release ${{ matrix.cmake_flags }}
+
+      - name: Build
+        run: cmake --build build --config Release -j
+
+      - name: Rename binary
+        shell: bash
+        run: |
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            cp build/Release/nyx.exe nyx-${{ matrix.name }}.exe || cp build/nyx.exe nyx-${{ matrix.name }}.exe
+          else
+            cp build/nyx nyx-${{ matrix.name }}
+            chmod +x nyx-${{ matrix.name }}
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nyx-${{ matrix.name }}
+          path: nyx-${{ matrix.name }}${{ matrix.ext }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/nyx-windows-x64/nyx-windows-x64.exe
+            artifacts/nyx-linux-x64/nyx-linux-x64
+            artifacts/nyx-macos-arm64/nyx-macos-arm64
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
